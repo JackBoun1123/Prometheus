@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring_net
+    ports:
+      - 9090:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - /:/host:ro
+    networks:
+      - monitoring_net
+    deploy:
+      mode: global  # Chạy trên mọi node
+
+  influxdb:
+    image: influxdb:2.7.0
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - monitoring_net
+    ports:
+      - 8086:8086
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password
+      - DOCKER_INFLUXDB_INIT_ORG=myorg
+      - DOCKER_INFLUXDB_INIT_BUCKET=mybucket
+    deploy:
+      replicas: 1
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - monitoring_net
+    ports:
+      - 3000:3000
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  monitoring_net:
+    driver: overlay
+
+volumes:
+  prometheus_data:
+  influxdb_data:
+  grafana_data:
